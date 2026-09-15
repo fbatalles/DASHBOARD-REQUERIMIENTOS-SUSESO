@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dashboard Requerimientos SUSESO</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Chart.js para gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="dashboard">
+
+        <!-- ENCABEZADO -->
+        <header class="header">
+
+            <div>
+                <h1>Dashboard Requerimientos SUSESO</h1>
+                <p>Seguimiento y gestión de requerimientos</p>
+            </div>
+
+            <div class="fecha-actual" id="fechaActual"></div>
+
+        </header>
+
+
+        <!-- FILTROS -->
+        <section class="filtros">
+
+            <div class="filtro">
+                <label for="filtroAnio">Año</label>
+                <select id="filtroAnio">
+                    <option value="todos">Todos</option>
+                </select>
+            </div>
+
+            <div class="filtro">
+                <label for="filtroMes">Mes</label>
+                <select id="filtroMes">
+                    <option value="todos">Todos</option>
+                </select>
+            </div>
+
+            <button id="btnActualizar" class="btn-actualizar">
+                Actualizar datos
+            </button>
+
+        </section>
+
+
+        <!-- TARJETAS DE GESTIÓN -->
+        <h2>Gestión de requerimientos</h2>
+
+        <section class="tarjetas">
+
+            <div class="tarjeta">
+                <span class="titulo">Total de requerimientos</span>
+                <strong id="totalRequerimientos">0</strong>
+            </div>
+
+            <div class="tarjeta">
+                <span class="titulo">Respondidos</span>
+                <strong id="respondidos">0</strong>
+            </div>
+
+            <div class="tarjeta">
+                <span class="titulo">Respondidos parcialmente</span>
+                <strong id="respondidosParcialmente">0</strong>
+            </div>
+
+            <div class="tarjeta">
+                <span class="titulo">Pendientes de respuesta</span>
+                <strong id="pendientes">0</strong>
+            </div>
+
+        </section>
+
+
+        <!-- TARJETAS DE CUMPLIMIENTO -->
+        <h2>Cumplimiento de plazos</h2>
+
+        <section class="tarjetas">
+
+            <div class="tarjeta cumplimiento">
+                <span class="titulo">Tasa de respuesta</span>
+                <strong id="tasaRespuesta">0%</strong>
+            </div>
+
+            <div class="tarjeta cumplimiento">
+                <span class="titulo">Respondidos en plazo</span>
+                <strong id="enPlazo">0</strong>
+            </div>
+
+            <div class="tarjeta cumplimiento">
+                <span class="titulo">Respondidos fuera de plazo</span>
+                <strong id="fueraDePlazo">0</strong>
+            </div>
+
+            <div class="tarjeta cumplimiento">
+                <span class="titulo">Cumplimiento de plazo</span>
+                <strong id="cumplimientoPlazo">0%</strong>
+            </div>
+
+        </section>
+
+
+        <!-- GRÁFICOS -->
+        <section class="graficos">
+
+            <div class="grafico-container">
+                <h3>Situación de requerimientos</h3>
+                <canvas id="graficoSituacion"></canvas>
+            </div>
+
+            <div class="grafico-container">
+                <h3>Cumplimiento de plazos</h3>
+                <canvas id="graficoPlazos"></canvas>
+            </div>
+
+        </section>
+
+
+        <!-- TABLA -->
+        <section class="tabla-section">
+
+            <h2>Detalle de requerimientos</h2>
+
+            <div class="tabla-wrapper">
+
+                <table>
+
+                    <thead>
+                        <tr>
+                            <th>ID Reclamo SUSESO</th>
+                            <th>Fecha recepción</th>
+                            <th>Pendiente / Cumplido</th>
+                            <th>Estado</th>
+                            <th>Requerimiento</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="tablaDatos">
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </section>
+
+
+        <!-- PIE DE PÁGINA -->
+        <footer>
+            Dashboard de Seguimiento SUSESO
+        </footer>
+
+    </div>
+
+
+    <script src="app.js"></script>
+
+</body>
+</html>
