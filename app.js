@@ -4,246 +4,143 @@
 
 const API_URL = "https://script.google.com/macros/s/AKfycbziYoHO4z9Yr13fq53nliVkObaevsyUz0IuGITA9a-zynZvE2t3u1FMDKC8HmePlGCD/exec";
 
-const TIEMPO_ESPERA = 15000;
-
 
 /****************************************************
  * VARIABLES GLOBALES
  ****************************************************/
 
 let datosOriginales = [];
-let graficoSituacion = null;
-let graficoPlazos = null;
-let cargando = false;
+let graficoSituacion;
+let graficoPlazos;
+
+
+/****************************************************
+ * INICIO
+ ****************************************************/
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    document.getElementById("fechaActual").textContent =
+        new Date().toLocaleDateString("es-CL");
+
+    cargarDatos();
+
+    document.getElementById("btnActualizar").addEventListener("click", function () {
+        aplicarFiltros();
+    });
+
+    document.getElementById("filtroAnio").addEventListener("change", aplicarFiltros);
+    document.getElementById("filtroMes").addEventListener("change", aplicarFiltros);
+
+});
 
 
 /****************************************************
  * CARGAR DATOS DESDE APPS SCRIPT
+ * USANDO JSONP PARA EVITAR CORS
  ****************************************************/
 
 function cargarDatos() {
 
-    if (cargando) return;
+    const callbackName = "recibirDatos_" + Date.now();
 
-    cargando = true;
+    window[callbackName] = function (respuesta) {
 
-    mostrarEstado("Cargando datos desde Google Sheets...");
+        try {
 
-    console.log("Iniciando carga de datos...");
+            if (!respuesta.success) {
+                mostrarError("Apps Script respondió con error.");
+                return;
+            }
 
-    const callbackName = "dashboardCallback_" + Date.now();
+            datosOriginales = respuesta.datos || [];
+
+            console.log("Datos recibidos:", datosOriginales.length);
+
+            cargarFiltros(datosOriginales);
+
+            aplicarFiltros();
+
+            eliminarScript();
+
+        } catch (error) {
+
+            console.error("Error procesando datos:", error);
+
+            mostrarError("Error procesando los datos recibidos.");
+
+        }
+
+    };
+
     const script = document.createElement("script");
 
-    let timeoutId;
+    script.src = API_URL + "?callback=" + callbackName;
 
-    window[callbackName] = function(resultado) {
+    script.id = "scriptDatosDashboard";
 
-        clearTimeout(timeoutId);
-
-        console.log("Respuesta recibida desde Apps Script:", resultado);
-
-        limpiar();
-
-        cargando = false;
-
-        if (!resultado || resultado.success !== true) {
-
-            mostrarError(
-                resultado?.error ||
-                "La API respondió con un error desconocido."
-            );
-
-            return;
-        }
-
-        datosOriginales = resultado.datos || [];
-
-        console.log(
-            "Total de registros cargados:",
-            datosOriginales.length
-        );
-
-        inicializarFiltros();
-
-        actualizarDashboard();
-
-        ocultarEstado();
-
-    };
-
-
-    function limpiar() {
-
-        delete window[callbackName];
-
-        if (script.parentNode) {
-            script.parentNode.removeChild(script);
-        }
-
-    }
-
-
-    script.src =
-        API_URL +
-        "?callback=" +
-        encodeURIComponent(callbackName) +
-        "&t=" +
-        Date.now();
-
-
-    script.onerror = function() {
-
-        clearTimeout(timeoutId);
-
-        limpiar();
-
-        cargando = false;
-
-        console.error("Error de conexión con Apps Script.");
+    script.onerror = function () {
 
         mostrarError(
-            "No fue posible conectar con Google Sheets.\n\n" +
-            "Verifica que la implementación de Apps Script esté activa."
+            "No fue posible conectar con Google Sheets. Verifica la implementación de Apps Script."
         );
+
+        eliminarScript();
 
     };
-
-
-    timeoutId = setTimeout(function() {
-
-        limpiar();
-
-        cargando = false;
-
-        console.error("Tiempo de espera agotado.");
-
-        mostrarError(
-            "La conexión con Google Sheets está tardando demasiado.\n\n" +
-            "Intenta actualizar nuevamente en unos segundos."
-        );
-
-    }, TIEMPO_ESPERA);
-
 
     document.body.appendChild(script);
 
-}
 
+    function eliminarScript() {
 
-/****************************************************
- * MENSAJES DE ESTADO
- ****************************************************/
+        const elemento = document.getElementById("scriptDatosDashboard");
 
-function mostrarEstado(mensaje) {
+        if (elemento) {
+            elemento.remove();
+        }
 
-    let elemento = document.getElementById("estadoConexion");
+        delete window[callbackName];
 
-    if (!elemento) {
-
-        elemento = document.createElement("div");
-
-        elemento.id = "estadoConexion";
-
-        elemento.style.position = "fixed";
-        elemento.style.top = "20px";
-        elemento.style.right = "20px";
-        elemento.style.zIndex = "9999";
-        elemento.style.background = "#0d6efd";
-        elemento.style.color = "white";
-        elemento.style.padding = "12px 18px";
-        elemento.style.borderRadius = "8px";
-        elemento.style.fontSize = "14px";
-        elemento.style.boxShadow = "0 3px 10px rgba(0,0,0,0.2)";
-
-        document.body.appendChild(elemento);
-
-    }
-
-    elemento.style.background = "#0d6efd";
-    elemento.textContent = mensaje;
-    elemento.style.display = "block";
-
-}
-
-
-function mostrarError(mensaje) {
-
-    let elemento = document.getElementById("estadoConexion");
-
-    if (!elemento) {
-
-        elemento = document.createElement("div");
-
-        elemento.id = "estadoConexion";
-
-        elemento.style.position = "fixed";
-        elemento.style.top = "20px";
-        elemento.style.right = "20px";
-        elemento.style.zIndex = "9999";
-        elemento.style.padding = "15px 20px";
-        elemento.style.borderRadius = "8px";
-        elemento.style.fontSize = "14px";
-        elemento.style.boxShadow = "0 3px 10px rgba(0,0,0,0.2)";
-
-        document.body.appendChild(elemento);
-
-    }
-
-    elemento.style.background = "#dc3545";
-    elemento.style.color = "white";
-    elemento.textContent = mensaje.replace(/\n/g, " ");
-    elemento.style.display = "block";
-
-}
-
-
-function ocultarEstado() {
-
-    const elemento = document.getElementById("estadoConexion");
-
-    if (elemento) {
-        elemento.style.display = "none";
     }
 
 }
 
 
 /****************************************************
- * INICIALIZAR FILTROS
+ * CARGAR FILTROS
  ****************************************************/
 
-function inicializarFiltros() {
+function cargarFiltros(datos) {
 
-    const filtroAnio = document.getElementById("filtroAnio");
-    const filtroMes = document.getElementById("filtroMes");
-
-    filtroAnio.innerHTML =
-        '<option value="todos">Todos</option>';
-
-    filtroMes.innerHTML =
-        '<option value="todos">Todos</option>';
+    const selectAnio = document.getElementById("filtroAnio");
+    const selectMes = document.getElementById("filtroMes");
 
     const anios = new Set();
+    const meses = new Set();
 
-    datosOriginales.forEach(registro => {
+    datos.forEach(registro => {
 
-        const fecha =
-            registro["Fecha Recepción por la unidad"];
+        const fecha = registro["Fecha Recepción por la unidad"];
 
         if (!fecha) return;
 
-        const partes = String(fecha).split("-");
+        const partes = fecha.split("-");
 
-        if (partes.length === 3) {
-            anios.add(partes[0]);
-        }
+        if (partes.length !== 3) return;
+
+        const anio = partes[0];
+        const mes = partes[1];
+
+        anios.add(anio);
+        meses.add(mes);
 
     });
 
+    selectAnio.innerHTML = '<option value="todos">Todos</option>';
 
     [...anios]
         .sort()
-        .reverse()
         .forEach(anio => {
 
             const option = document.createElement("option");
@@ -251,46 +148,49 @@ function inicializarFiltros() {
             option.value = anio;
             option.textContent = anio;
 
-            filtroAnio.appendChild(option);
+            selectAnio.appendChild(option);
 
         });
 
 
-    const meses = [
-        ["01", "Enero"],
-        ["02", "Febrero"],
-        ["03", "Marzo"],
-        ["04", "Abril"],
-        ["05", "Mayo"],
-        ["06", "Junio"],
-        ["07", "Julio"],
-        ["08", "Agosto"],
-        ["09", "Septiembre"],
-        ["10", "Octubre"],
-        ["11", "Noviembre"],
-        ["12", "Diciembre"]
+    selectMes.innerHTML = '<option value="todos">Todos</option>';
+
+    const nombresMeses = [
+        "Enero",
+        "Febrero",
+        "Marzo",
+        "Abril",
+        "Mayo",
+        "Junio",
+        "Julio",
+        "Agosto",
+        "Septiembre",
+        "Octubre",
+        "Noviembre",
+        "Diciembre"
     ];
 
+    [...meses]
+        .sort()
+        .forEach(mes => {
 
-    meses.forEach(mes => {
+            const option = document.createElement("option");
 
-        const option = document.createElement("option");
+            option.value = mes;
+            option.textContent = nombresMeses[parseInt(mes) - 1] || mes;
 
-        option.value = mes[0];
-        option.textContent = mes[1];
+            selectMes.appendChild(option);
 
-        filtroMes.appendChild(option);
-
-    });
+        });
 
 }
 
 
 /****************************************************
- * ACTUALIZAR DASHBOARD
+ * APLICAR FILTROS
  ****************************************************/
 
-function actualizarDashboard() {
+function aplicarFiltros() {
 
     const anioSeleccionado =
         document.getElementById("filtroAnio").value;
@@ -301,12 +201,11 @@ function actualizarDashboard() {
 
     const datosFiltrados = datosOriginales.filter(registro => {
 
-        const fecha =
-            registro["Fecha Recepción por la unidad"];
+        const fecha = registro["Fecha Recepción por la unidad"];
 
         if (!fecha) return false;
 
-        const partes = String(fecha).split("-");
+        const partes = fecha.split("-");
 
         if (partes.length !== 3) return false;
 
@@ -314,113 +213,69 @@ function actualizarDashboard() {
         const mes = partes[1];
 
 
-        if (
-            anioSeleccionado !== "todos" &&
-            anio !== anioSeleccionado
-        ) {
-            return false;
-        }
+        const cumpleAnio =
+            anioSeleccionado === "todos" ||
+            anio === anioSeleccionado;
+
+        const cumpleMes =
+            mesSeleccionado === "todos" ||
+            mes === mesSeleccionado;
 
 
-        if (
-            mesSeleccionado !== "todos" &&
-            mes !== mesSeleccionado
-        ) {
-            return false;
-        }
-
-
-        return true;
+        return cumpleAnio && cumpleMes;
 
     });
 
 
-    console.log(
-        "Registros filtrados:",
-        datosFiltrados.length
-    );
-
-
-    calcularIndicadores(datosFiltrados);
-
-    actualizarGraficos(datosFiltrados);
-
-    actualizarTabla(datosFiltrados);
+    actualizarDashboard(datosFiltrados);
 
 }
 
 
 /****************************************************
- * CALCULAR INDICADORES
+ * ACTUALIZAR DASHBOARD
  ****************************************************/
 
-function calcularIndicadores(datos) {
+function actualizarDashboard(datos) {
 
     const total = datos.length;
 
-    let respondidos = 0;
-    let parcialmente = 0;
-    let pendientes = 0;
 
-    let enPlazo = 0;
-    let fueraPlazo = 0;
+    const respondidos = datos.filter(registro =>
+        normalizar(registro["Pendiente / Cumplido"]) === "respondido"
+    ).length;
 
 
-    datos.forEach(registro => {
-
-        const situacion = String(
-            registro["Pendiente / Cumplido"] || ""
-        ).trim();
+    const parcialmente = datos.filter(registro =>
+        normalizar(registro["Pendiente / Cumplido"]) === "respondido parcialmente"
+    ).length;
 
 
-        const estado = String(
-            registro["Estado"] || ""
-        ).trim();
+    const pendientes = datos.filter(registro =>
+        normalizar(registro["Pendiente / Cumplido"]) === "pendiente de respuesta"
+    ).length;
 
 
-        if (situacion === "Respondido") {
-            respondidos++;
-        }
+    const enPlazo = datos.filter(registro =>
+        normalizar(registro["Estado"]) === "cumplido en plazo"
+    ).length;
 
 
-        if (situacion === "Respondido parcialmente") {
-            parcialmente++;
-        }
+    const fueraDePlazo = datos.filter(registro =>
+        normalizar(registro["Estado"]) === "cumplido fuera de plazo"
+    ).length;
 
 
-        if (situacion === "Pendiente de respuesta") {
-            pendientes++;
-        }
+    const tasaRespuesta =
+        total > 0
+            ? ((respondidos + parcialmente) / total * 100).toFixed(1)
+            : 0;
 
 
-        if (estado === "CUMPLIDO EN PLAZO") {
-            enPlazo++;
-        }
-
-
-        if (estado === "CUMPLIDO FUERA DE PLAZO") {
-            fueraPlazo++;
-        }
-
-    });
-
-
-    const totalRespondidos =
-        respondidos + parcialmente;
-
-
-    const tasaRespuesta = total > 0
-        ? (totalRespondidos / total) * 100
-        : 0;
-
-
-    const totalConEstado =
-        enPlazo + fueraPlazo;
-
-
-    const cumplimientoPlazo = totalConEstado > 0
-        ? (enPlazo / totalConEstado) * 100
-        : 0;
+    const cumplimientoPlazo =
+        (enPlazo + fueraDePlazo) > 0
+            ? (enPlazo / (enPlazo + fueraDePlazo) * 100).toFixed(1)
+            : 0;
 
 
     document.getElementById("totalRequerimientos").textContent = total;
@@ -431,18 +286,44 @@ function calcularIndicadores(datos) {
 
     document.getElementById("pendientes").textContent = pendientes;
 
-
-    document.getElementById("tasaRespuesta").textContent =
-        tasaRespuesta.toFixed(1) + "%";
-
+    document.getElementById("tasaRespuesta").textContent = tasaRespuesta + "%";
 
     document.getElementById("enPlazo").textContent = enPlazo;
 
-    document.getElementById("fueraDePlazo").textContent = fueraPlazo;
-
+    document.getElementById("fueraDePlazo").textContent = fueraDePlazo;
 
     document.getElementById("cumplimientoPlazo").textContent =
-        cumplimientoPlazo.toFixed(1) + "%";
+        cumplimientoPlazo + "%";
+
+
+    actualizarGraficos(
+        respondidos,
+        parcialmente,
+        pendientes,
+        enPlazo,
+        fueraDePlazo
+    );
+
+
+    actualizarTabla(datos);
+
+}
+
+
+/****************************************************
+ * NORMALIZAR TEXTO
+ ****************************************************/
+
+function normalizar(texto) {
+
+    if (texto === null || texto === undefined) return "";
+
+    return texto
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
 
 }
 
@@ -451,153 +332,120 @@ function calcularIndicadores(datos) {
  * GRÁFICOS
  ****************************************************/
 
-function actualizarGraficos(datos) {
-
-    if (typeof Chart === "undefined") {
-
-        console.error("Chart.js no está disponible.");
-
-        mostrarError(
-            "No fue posible cargar los gráficos. " +
-            "Verifica la conexión a Chart.js."
-        );
-
-        return;
-
-    }
-
-
-    const respondidos = datos.filter(
-        r => r["Pendiente / Cumplido"] === "Respondido"
-    ).length;
-
-
-    const parcialmente = datos.filter(
-        r => r["Pendiente / Cumplido"] === "Respondido parcialmente"
-    ).length;
-
-
-    const pendientes = datos.filter(
-        r => r["Pendiente / Cumplido"] === "Pendiente de respuesta"
-    ).length;
-
-
-    const enPlazo = datos.filter(
-        r => r["Estado"] === "CUMPLIDO EN PLAZO"
-    ).length;
-
-
-    const fueraPlazo = datos.filter(
-        r => r["Estado"] === "CUMPLIDO FUERA DE PLAZO"
-    ).length;
+function actualizarGraficos(
+    respondidos,
+    parcialmente,
+    pendientes,
+    enPlazo,
+    fueraDePlazo
+) {
 
 
     if (graficoSituacion) {
         graficoSituacion.destroy();
     }
 
-
-    graficoSituacion = new Chart(
-        document.getElementById("graficoSituacion"),
-        {
-            type: "doughnut",
-
-            data: {
-                labels: [
-                    "Respondidos",
-                    "Respondidos parcialmente",
-                    "Pendientes de respuesta"
-                ],
-
-                datasets: [{
-                    data: [
-                        respondidos,
-                        parcialmente,
-                        pendientes
-                    ]
-                }]
-            },
-
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
-
-        }
-    );
-
-
     if (graficoPlazos) {
         graficoPlazos.destroy();
     }
 
 
-    graficoPlazos = new Chart(
-        document.getElementById("graficoPlazos"),
-        {
-            type: "bar",
+    const ctxSituacion =
+        document.getElementById("graficoSituacion");
 
-            data: {
-                labels: [
-                    "Respondidos en plazo",
-                    "Respondidos fuera de plazo"
-                ],
 
-                datasets: [{
-                    label: "Cantidad",
+    graficoSituacion = new Chart(ctxSituacion, {
 
-                    data: [
-                        enPlazo,
-                        fueraPlazo
-                    ]
-                }]
+        type: "doughnut",
+
+        data: {
+
+            labels: [
+                "Respondidos",
+                "Respondidos parcialmente",
+                "Pendientes de respuesta"
+            ],
+
+            datasets: [{
+
+                data: [
+                    respondidos,
+                    parcialmente,
+                    pendientes
+                ]
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            plugins: {
+                legend: {
+                    position: "bottom"
+                }
+            }
+
+        }
+
+    });
+
+
+    const ctxPlazos =
+        document.getElementById("graficoPlazos");
+
+
+    graficoPlazos = new Chart(ctxPlazos, {
+
+        type: "bar",
+
+        data: {
+
+            labels: [
+                "Cumplido en plazo",
+                "Cumplido fuera de plazo"
+            ],
+
+            datasets: [{
+
+                label: "Cantidad",
+
+                data: [
+                    enPlazo,
+                    fueraDePlazo
+                ]
+
+            }]
+
+        },
+
+        options: {
+
+            responsive: true,
+
+            maintainAspectRatio: false,
+
+            scales: {
+
+                y: {
+                    beginAtZero: true
+                }
 
             },
 
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
+            plugins: {
 
-                scales: {
-                    y: {
-                        beginAtZero: true
-                    }
+                legend: {
+                    display: false
                 }
 
             }
 
         }
-    );
-
-}
-
-
-/****************************************************
- * ACTUALIZAR TABLA
- ****************************************************/
-
-function actualizarTabla(datos) {
-
-    const tabla = document.getElementById("tablaDatos");
-
-    tabla.innerHTML = "";
-
-
-    datos.forEach(registro => {
-
-        const fila = document.createElement("tr");
-
-
-        fila.innerHTML = `
-            <td>${registro["ID RECLAMO SUSESO"] || ""}</td>
-            <td>${registro["Fecha Recepción por la unidad"] || ""}</td>
-            <td>${registro["Pendiente / Cumplido"] || ""}</td>
-            <td>${registro["Estado"] || ""}</td>
-            <td>${registro["Requerimiento"] || ""}</td>
-        `;
-
-
-        tabla.appendChild(fila);
 
     });
 
@@ -605,27 +453,49 @@ function actualizarTabla(datos) {
 
 
 /****************************************************
- * EVENTOS
+ * TABLA
  ****************************************************/
 
-document.addEventListener("DOMContentLoaded", function() {
+function actualizarTabla(datos) {
 
-    document.getElementById("fechaActual").textContent =
-        new Date().toLocaleDateString("es-CL");
+    const tbody = document.getElementById("tablaDatos");
 
-
-    cargarDatos();
+    tbody.innerHTML = "";
 
 
-    document.getElementById("filtroAnio")
-        .addEventListener("change", actualizarDashboard);
+    datos.forEach(registro => {
+
+        const fila = document.createElement("tr");
+
+        fila.innerHTML = `
+
+            <td>${registro["ID RECLAMO SUSESO"] || ""}</td>
+
+            <td>${registro["Fecha Recepción por la unidad"] || ""}</td>
+
+            <td>${registro["Pendiente / Cumplido"] || ""}</td>
+
+            <td>${registro["Estado"] || ""}</td>
+
+            <td>${registro["Requerimiento"] || ""}</td>
+
+        `;
+
+        tbody.appendChild(fila);
+
+    });
+
+}
 
 
-    document.getElementById("filtroMes")
-        .addEventListener("change", actualizarDashboard);
+/****************************************************
+ * MOSTRAR ERROR
+ ****************************************************/
 
+function mostrarError(mensaje) {
 
-    document.getElementById("btnActualizar")
-        .addEventListener("click", cargarDatos);
+    console.error(mensaje);
 
-});
+    alert(mensaje);
+
+}
