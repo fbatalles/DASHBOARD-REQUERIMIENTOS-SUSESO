@@ -1,56 +1,73 @@
-/************************************************
+/****************************************************
  * CONFIGURACIÓN
- ************************************************/
+ ****************************************************/
 
 const API_URL = "https://script.google.com/macros/s/AKfycbziYoHO4z9Yr13fq53nliVkObaevsyUz0IuGITA9a-zynZvE2t3u1FMDKC8HmePlGCD/exec";
 
+const TIEMPO_ESPERA = 15000;
 
-/************************************************
+
+/****************************************************
  * VARIABLES GLOBALES
- ************************************************/
+ ****************************************************/
 
 let datosOriginales = [];
 let graficoSituacion = null;
 let graficoPlazos = null;
+let cargando = false;
 
 
-/************************************************
+/****************************************************
  * CARGAR DATOS DESDE APPS SCRIPT
- ************************************************/
+ ****************************************************/
 
 function cargarDatos() {
+
+    if (cargando) return;
+
+    cargando = true;
+
+    mostrarEstado("Cargando datos desde Google Sheets...");
 
     console.log("Iniciando carga de datos...");
 
     const callbackName = "dashboardCallback_" + Date.now();
-
     const script = document.createElement("script");
+
+    let timeoutId;
 
     window[callbackName] = function(resultado) {
 
+        clearTimeout(timeoutId);
+
         console.log("Respuesta recibida desde Apps Script:", resultado);
+
+        limpiar();
+
+        cargando = false;
 
         if (!resultado || resultado.success !== true) {
 
-            alert(
-                "La API respondió con un error:\n" +
-                (resultado?.error || "Error desconocido")
+            mostrarError(
+                resultado?.error ||
+                "La API respondió con un error desconocido."
             );
-
-            limpiar();
 
             return;
         }
 
         datosOriginales = resultado.datos || [];
 
-        console.log("Total de registros cargados:", datosOriginales.length);
+        console.log(
+            "Total de registros cargados:",
+            datosOriginales.length
+        );
 
         inicializarFiltros();
 
         actualizarDashboard();
 
-        limpiar();
+        ocultarEstado();
 
     };
 
@@ -66,20 +83,46 @@ function cargarDatos() {
     }
 
 
-    script.src = API_URL + "?callback=" + callbackName + "&t=" + Date.now();
+    script.src =
+        API_URL +
+        "?callback=" +
+        encodeURIComponent(callbackName) +
+        "&t=" +
+        Date.now();
+
 
     script.onerror = function() {
 
-        console.error("No se pudo conectar con Apps Script.");
-
-        alert(
-            "No fue posible conectar con Google Sheets.\n\n" +
-            "Revisa la URL de Apps Script y su implementación."
-        );
+        clearTimeout(timeoutId);
 
         limpiar();
 
+        cargando = false;
+
+        console.error("Error de conexión con Apps Script.");
+
+        mostrarError(
+            "No fue posible conectar con Google Sheets.\n\n" +
+            "Verifica que la implementación de Apps Script esté activa."
+        );
+
     };
+
+
+    timeoutId = setTimeout(function() {
+
+        limpiar();
+
+        cargando = false;
+
+        console.error("Tiempo de espera agotado.");
+
+        mostrarError(
+            "La conexión con Google Sheets está tardando demasiado.\n\n" +
+            "Intenta actualizar nuevamente en unos segundos."
+        );
+
+    }, TIEMPO_ESPERA);
 
 
     document.body.appendChild(script);
@@ -87,31 +130,109 @@ function cargarDatos() {
 }
 
 
-/************************************************
+/****************************************************
+ * MENSAJES DE ESTADO
+ ****************************************************/
+
+function mostrarEstado(mensaje) {
+
+    let elemento = document.getElementById("estadoConexion");
+
+    if (!elemento) {
+
+        elemento = document.createElement("div");
+
+        elemento.id = "estadoConexion";
+
+        elemento.style.position = "fixed";
+        elemento.style.top = "20px";
+        elemento.style.right = "20px";
+        elemento.style.zIndex = "9999";
+        elemento.style.background = "#0d6efd";
+        elemento.style.color = "white";
+        elemento.style.padding = "12px 18px";
+        elemento.style.borderRadius = "8px";
+        elemento.style.fontSize = "14px";
+        elemento.style.boxShadow = "0 3px 10px rgba(0,0,0,0.2)";
+
+        document.body.appendChild(elemento);
+
+    }
+
+    elemento.style.background = "#0d6efd";
+    elemento.textContent = mensaje;
+    elemento.style.display = "block";
+
+}
+
+
+function mostrarError(mensaje) {
+
+    let elemento = document.getElementById("estadoConexion");
+
+    if (!elemento) {
+
+        elemento = document.createElement("div");
+
+        elemento.id = "estadoConexion";
+
+        elemento.style.position = "fixed";
+        elemento.style.top = "20px";
+        elemento.style.right = "20px";
+        elemento.style.zIndex = "9999";
+        elemento.style.padding = "15px 20px";
+        elemento.style.borderRadius = "8px";
+        elemento.style.fontSize = "14px";
+        elemento.style.boxShadow = "0 3px 10px rgba(0,0,0,0.2)";
+
+        document.body.appendChild(elemento);
+
+    }
+
+    elemento.style.background = "#dc3545";
+    elemento.style.color = "white";
+    elemento.textContent = mensaje.replace(/\n/g, " ");
+    elemento.style.display = "block";
+
+}
+
+
+function ocultarEstado() {
+
+    const elemento = document.getElementById("estadoConexion");
+
+    if (elemento) {
+        elemento.style.display = "none";
+    }
+
+}
+
+
+/****************************************************
  * INICIALIZAR FILTROS
- ************************************************/
+ ****************************************************/
 
 function inicializarFiltros() {
 
     const filtroAnio = document.getElementById("filtroAnio");
     const filtroMes = document.getElementById("filtroMes");
 
+    filtroAnio.innerHTML =
+        '<option value="todos">Todos</option>';
 
-    // Evitar duplicar opciones
-    filtroAnio.innerHTML = '<option value="todos">Todos</option>';
-    filtroMes.innerHTML = '<option value="todos">Todos</option>';
-
+    filtroMes.innerHTML =
+        '<option value="todos">Todos</option>';
 
     const anios = new Set();
 
-
     datosOriginales.forEach(registro => {
 
-        const fecha = registro["Fecha Recepción por la unidad"];
+        const fecha =
+            registro["Fecha Recepción por la unidad"];
 
         if (!fecha) return;
 
-        const partes = fecha.split("-");
+        const partes = String(fecha).split("-");
 
         if (partes.length === 3) {
             anios.add(partes[0]);
@@ -165,9 +286,9 @@ function inicializarFiltros() {
 }
 
 
-/************************************************
+/****************************************************
  * ACTUALIZAR DASHBOARD
- ************************************************/
+ ****************************************************/
 
 function actualizarDashboard() {
 
@@ -180,11 +301,12 @@ function actualizarDashboard() {
 
     const datosFiltrados = datosOriginales.filter(registro => {
 
-        const fecha = registro["Fecha Recepción por la unidad"];
+        const fecha =
+            registro["Fecha Recepción por la unidad"];
 
         if (!fecha) return false;
 
-        const partes = fecha.split("-");
+        const partes = String(fecha).split("-");
 
         if (partes.length !== 3) return false;
 
@@ -213,7 +335,10 @@ function actualizarDashboard() {
     });
 
 
-    console.log("Registros filtrados:", datosFiltrados.length);
+    console.log(
+        "Registros filtrados:",
+        datosFiltrados.length
+    );
 
 
     calcularIndicadores(datosFiltrados);
@@ -225,9 +350,9 @@ function actualizarDashboard() {
 }
 
 
-/************************************************
+/****************************************************
  * CALCULAR INDICADORES
- ************************************************/
+ ****************************************************/
 
 function calcularIndicadores(datos) {
 
@@ -247,6 +372,7 @@ function calcularIndicadores(datos) {
             registro["Pendiente / Cumplido"] || ""
         ).trim();
 
+
         const estado = String(
             registro["Estado"] || ""
         ).trim();
@@ -256,9 +382,11 @@ function calcularIndicadores(datos) {
             respondidos++;
         }
 
+
         if (situacion === "Respondido parcialmente") {
             parcialmente++;
         }
+
 
         if (situacion === "Pendiente de respuesta") {
             pendientes++;
@@ -269,6 +397,7 @@ function calcularIndicadores(datos) {
             enPlazo++;
         }
 
+
         if (estado === "CUMPLIDO FUERA DE PLAZO") {
             fueraPlazo++;
         }
@@ -276,14 +405,18 @@ function calcularIndicadores(datos) {
     });
 
 
-    const totalRespondidos = respondidos + parcialmente;
+    const totalRespondidos =
+        respondidos + parcialmente;
+
 
     const tasaRespuesta = total > 0
         ? (totalRespondidos / total) * 100
         : 0;
 
 
-    const totalConEstado = enPlazo + fueraPlazo;
+    const totalConEstado =
+        enPlazo + fueraPlazo;
+
 
     const cumplimientoPlazo = totalConEstado > 0
         ? (enPlazo / totalConEstado) * 100
@@ -298,12 +431,15 @@ function calcularIndicadores(datos) {
 
     document.getElementById("pendientes").textContent = pendientes;
 
+
     document.getElementById("tasaRespuesta").textContent =
         tasaRespuesta.toFixed(1) + "%";
+
 
     document.getElementById("enPlazo").textContent = enPlazo;
 
     document.getElementById("fueraDePlazo").textContent = fueraPlazo;
+
 
     document.getElementById("cumplimientoPlazo").textContent =
         cumplimientoPlazo.toFixed(1) + "%";
@@ -311,11 +447,25 @@ function calcularIndicadores(datos) {
 }
 
 
-/************************************************
+/****************************************************
  * GRÁFICOS
- ************************************************/
+ ****************************************************/
 
 function actualizarGraficos(datos) {
+
+    if (typeof Chart === "undefined") {
+
+        console.error("Chart.js no está disponible.");
+
+        mostrarError(
+            "No fue posible cargar los gráficos. " +
+            "Verifica la conexión a Chart.js."
+        );
+
+        return;
+
+    }
+
 
     const respondidos = datos.filter(
         r => r["Pendiente / Cumplido"] === "Respondido"
@@ -422,9 +572,9 @@ function actualizarGraficos(datos) {
 }
 
 
-/************************************************
+/****************************************************
  * ACTUALIZAR TABLA
- ************************************************/
+ ****************************************************/
 
 function actualizarTabla(datos) {
 
@@ -440,13 +590,9 @@ function actualizarTabla(datos) {
 
         fila.innerHTML = `
             <td>${registro["ID RECLAMO SUSESO"] || ""}</td>
-
             <td>${registro["Fecha Recepción por la unidad"] || ""}</td>
-
             <td>${registro["Pendiente / Cumplido"] || ""}</td>
-
             <td>${registro["Estado"] || ""}</td>
-
             <td>${registro["Requerimiento"] || ""}</td>
         `;
 
@@ -458,9 +604,9 @@ function actualizarTabla(datos) {
 }
 
 
-/************************************************
+/****************************************************
  * EVENTOS
- ************************************************/
+ ****************************************************/
 
 document.addEventListener("DOMContentLoaded", function() {
 
