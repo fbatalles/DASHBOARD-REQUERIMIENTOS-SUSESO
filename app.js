@@ -10,67 +10,74 @@ const API_URL = "https://script.google.com/macros/s/AKfycbwg5eHKRalM8xklP5SFzSwt
  ************************************************/
 
 let datosOriginales = [];
-let graficoSituacion;
-let graficoPlazos;
+let graficoSituacion = null;
+let graficoPlazos = null;
 
 
 /************************************************
- * CARGAR DATOS
- ************************************************/
-
-/************************************************
- * CARGAR DATOS DESDE APPS SCRIPT - JSONP
+ * CARGAR DATOS DESDE APPS SCRIPT
  ************************************************/
 
 function cargarDatos() {
 
+    console.log("Iniciando carga de datos...");
+
     const callbackName = "dashboardCallback_" + Date.now();
+
+    const script = document.createElement("script");
 
     window[callbackName] = function(resultado) {
 
-        try {
+        console.log("Respuesta recibida desde Apps Script:", resultado);
 
-            if (!resultado.success) {
-                throw new Error(resultado.error);
-            }
+        if (!resultado || resultado.success !== true) {
 
-            datosOriginales = resultado.datos;
+            alert(
+                "La API respondió con un error:\n" +
+                (resultado?.error || "Error desconocido")
+            );
 
-            console.log("Datos cargados correctamente:", datosOriginales.length);
+            limpiar();
 
-            inicializarFiltros();
-
-            actualizarDashboard();
-
-        } catch (error) {
-
-            console.error("Error en los datos:", error);
-
-            alert("No fue posible procesar los datos desde Google Sheets.");
-
+            return;
         }
 
-        // Limpiar callback
+        datosOriginales = resultado.datos || [];
+
+        console.log("Total de registros cargados:", datosOriginales.length);
+
+        inicializarFiltros();
+
+        actualizarDashboard();
+
+        limpiar();
+
+    };
+
+
+    function limpiar() {
+
         delete window[callbackName];
 
         if (script.parentNode) {
             script.parentNode.removeChild(script);
         }
 
-    };
+    }
 
 
-    const script = document.createElement("script");
-
-    script.src = API_URL + "?callback=" + callbackName;
+    script.src = API_URL + "?callback=" + callbackName + "&t=" + Date.now();
 
     script.onerror = function() {
 
-        console.error("Error de conexión con Apps Script.");
+        console.error("No se pudo conectar con Apps Script.");
 
-        alert("No fue posible conectar con Google Sheets.");
+        alert(
+            "No fue posible conectar con Google Sheets.\n\n" +
+            "Revisa la URL de Apps Script y su implementación."
+        );
 
-        delete window[callbackName];
+        limpiar();
 
     };
 
@@ -79,6 +86,7 @@ function cargarDatos() {
 
 }
 
+
 /************************************************
  * INICIALIZAR FILTROS
  ************************************************/
@@ -86,22 +94,31 @@ function cargarDatos() {
 function inicializarFiltros() {
 
     const filtroAnio = document.getElementById("filtroAnio");
+    const filtroMes = document.getElementById("filtroMes");
+
+
+    // Evitar duplicar opciones
+    filtroAnio.innerHTML = '<option value="todos">Todos</option>';
+    filtroMes.innerHTML = '<option value="todos">Todos</option>';
+
 
     const anios = new Set();
+
 
     datosOriginales.forEach(registro => {
 
         const fecha = registro["Fecha Recepción por la unidad"];
 
-        if (fecha) {
+        if (!fecha) return;
 
-            const anio = fecha.substring(0, 4);
+        const partes = fecha.split("-");
 
-            anios.add(anio);
-
+        if (partes.length === 3) {
+            anios.add(partes[0]);
         }
 
     });
+
 
     [...anios]
         .sort()
@@ -116,6 +133,34 @@ function inicializarFiltros() {
             filtroAnio.appendChild(option);
 
         });
+
+
+    const meses = [
+        ["01", "Enero"],
+        ["02", "Febrero"],
+        ["03", "Marzo"],
+        ["04", "Abril"],
+        ["05", "Mayo"],
+        ["06", "Junio"],
+        ["07", "Julio"],
+        ["08", "Agosto"],
+        ["09", "Septiembre"],
+        ["10", "Octubre"],
+        ["11", "Noviembre"],
+        ["12", "Diciembre"]
+    ];
+
+
+    meses.forEach(mes => {
+
+        const option = document.createElement("option");
+
+        option.value = mes[0];
+        option.textContent = mes[1];
+
+        filtroMes.appendChild(option);
+
+    });
 
 }
 
@@ -139,8 +184,13 @@ function actualizarDashboard() {
 
         if (!fecha) return false;
 
-        const anio = fecha.substring(0, 4);
-        const mes = fecha.substring(5, 7);
+        const partes = fecha.split("-");
+
+        if (partes.length !== 3) return false;
+
+        const anio = partes[0];
+        const mes = partes[1];
+
 
         if (
             anioSeleccionado !== "todos" &&
@@ -149,6 +199,7 @@ function actualizarDashboard() {
             return false;
         }
 
+
         if (
             mesSeleccionado !== "todos" &&
             mes !== mesSeleccionado
@@ -156,9 +207,13 @@ function actualizarDashboard() {
             return false;
         }
 
+
         return true;
 
     });
+
+
+    console.log("Registros filtrados:", datosFiltrados.length);
 
 
     calcularIndicadores(datosFiltrados);
@@ -188,8 +243,13 @@ function calcularIndicadores(datos) {
 
     datos.forEach(registro => {
 
-        const situacion = registro["Pendiente / Cumplido"];
-        const estado = registro["Estado"];
+        const situacion = String(
+            registro["Pendiente / Cumplido"] || ""
+        ).trim();
+
+        const estado = String(
+            registro["Estado"] || ""
+        ).trim();
 
 
         if (situacion === "Respondido") {
@@ -216,15 +276,17 @@ function calcularIndicadores(datos) {
     });
 
 
+    const totalRespondidos = respondidos + parcialmente;
+
     const tasaRespuesta = total > 0
-        ? ((respondidos + parcialmente) / total) * 100
+        ? (totalRespondidos / total) * 100
         : 0;
 
 
-    const totalRespondidos = enPlazo + fueraPlazo;
+    const totalConEstado = enPlazo + fueraPlazo;
 
-    const cumplimientoPlazo = totalRespondidos > 0
-        ? (enPlazo / totalRespondidos) * 100
+    const cumplimientoPlazo = totalConEstado > 0
+        ? (enPlazo / totalConEstado) * 100
         : 0;
 
 
@@ -259,24 +321,31 @@ function actualizarGraficos(datos) {
         r => r["Pendiente / Cumplido"] === "Respondido"
     ).length;
 
+
     const parcialmente = datos.filter(
         r => r["Pendiente / Cumplido"] === "Respondido parcialmente"
     ).length;
+
 
     const pendientes = datos.filter(
         r => r["Pendiente / Cumplido"] === "Pendiente de respuesta"
     ).length;
 
+
     const enPlazo = datos.filter(
         r => r["Estado"] === "CUMPLIDO EN PLAZO"
     ).length;
+
 
     const fueraPlazo = datos.filter(
         r => r["Estado"] === "CUMPLIDO FUERA DE PLAZO"
     ).length;
 
 
-    if (graficoSituacion) graficoSituacion.destroy();
+    if (graficoSituacion) {
+        graficoSituacion.destroy();
+    }
+
 
     graficoSituacion = new Chart(
         document.getElementById("graficoSituacion"),
@@ -287,7 +356,7 @@ function actualizarGraficos(datos) {
                 labels: [
                     "Respondidos",
                     "Respondidos parcialmente",
-                    "Pendientes"
+                    "Pendientes de respuesta"
                 ],
 
                 datasets: [{
@@ -303,11 +372,15 @@ function actualizarGraficos(datos) {
                 responsive: true,
                 maintainAspectRatio: false
             }
+
         }
     );
 
 
-    if (graficoPlazos) graficoPlazos.destroy();
+    if (graficoPlazos) {
+        graficoPlazos.destroy();
+    }
+
 
     graficoPlazos = new Chart(
         document.getElementById("graficoPlazos"),
@@ -316,28 +389,33 @@ function actualizarGraficos(datos) {
 
             data: {
                 labels: [
-                    "En plazo",
-                    "Fuera de plazo"
+                    "Respondidos en plazo",
+                    "Respondidos fuera de plazo"
                 ],
 
                 datasets: [{
                     label: "Cantidad",
+
                     data: [
                         enPlazo,
                         fueraPlazo
                     ]
                 }]
+
             },
 
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+
                 scales: {
                     y: {
                         beginAtZero: true
                     }
                 }
+
             }
+
         }
     );
 
@@ -345,7 +423,7 @@ function actualizarGraficos(datos) {
 
 
 /************************************************
- * TABLA
+ * ACTUALIZAR TABLA
  ************************************************/
 
 function actualizarTabla(datos) {
@@ -359,13 +437,19 @@ function actualizarTabla(datos) {
 
         const fila = document.createElement("tr");
 
+
         fila.innerHTML = `
             <td>${registro["ID RECLAMO SUSESO"] || ""}</td>
+
             <td>${registro["Fecha Recepción por la unidad"] || ""}</td>
+
             <td>${registro["Pendiente / Cumplido"] || ""}</td>
+
             <td>${registro["Estado"] || ""}</td>
+
             <td>${registro["Requerimiento"] || ""}</td>
         `;
+
 
         tabla.appendChild(fila);
 
@@ -378,10 +462,11 @@ function actualizarTabla(datos) {
  * EVENTOS
  ************************************************/
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function() {
 
     document.getElementById("fechaActual").textContent =
         new Date().toLocaleDateString("es-CL");
+
 
     cargarDatos();
 
@@ -389,8 +474,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("filtroAnio")
         .addEventListener("change", actualizarDashboard);
 
+
     document.getElementById("filtroMes")
         .addEventListener("change", actualizarDashboard);
+
 
     document.getElementById("btnActualizar")
         .addEventListener("click", cargarDatos);
