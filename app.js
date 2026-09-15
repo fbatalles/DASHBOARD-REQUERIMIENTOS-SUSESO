@@ -2,7 +2,7 @@
  * CONFIGURACIÓN
  ************************************************/
 
-const API_URL = "PEGA_AQUI_TU_URL_DE_APPS_SCRIPT";
+const API_URL = "https://script.google.com/macros/s/AKfycbwg5eHKRalM8xklP5SFzSwtLgDmdF8xQVgHSsrmJg4E1Sv5WnPQg1_EeUlz5mNunWG1_A/exec";
 
 
 /************************************************
