@@ -2,7 +2,7 @@
  * CONFIGURACIÓN
  ****************************************************/
 
-const API_URL = "https://script.google.com/macros/s/AKfycbziYoHO4z9Yr13fq53nliVkObaevsyUz0IuGITA9a-zynZvE2t3u1FMDKC8HmePlGCD/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbynk65zqbigtr0gkrqFm1eY1kKNEiXGr25CWncrmTK6i-SXE8s7UkpiWQqWhFV5MF3VnQ/exec";
 
 
 /****************************************************
