@@ -42,9 +42,15 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function cargarDatos() {
 
+    console.log("Iniciando carga de datos...");
+
+    console.log("URL API:", API_URL);
+
     const callbackName = "recibirDatos_" + Date.now();
 
-    window[callbackName] = function (respuesta) {
+    window[callbackName] = function(respuesta) {
+
+        console.log("Respuesta recibida desde Apps Script:", respuesta);
 
         try {
 
@@ -55,7 +61,7 @@ function cargarDatos() {
 
             datosOriginales = respuesta.datos || [];
 
-            console.log("Datos recibidos:", datosOriginales.length);
+            console.log("Total registros recibidos:", datosOriginales.length);
 
             cargarFiltros(datosOriginales);
 
@@ -73,21 +79,29 @@ function cargarDatos() {
 
     };
 
+
     const script = document.createElement("script");
 
     script.src = API_URL + "?callback=" + callbackName;
 
+    console.log("URL final consultada:", script.src);
+
     script.id = "scriptDatosDashboard";
 
-    script.onerror = function () {
+    script.onerror = function() {
+
+        console.error("ERROR: No se pudo cargar Apps Script");
+
+        console.error("URL consultada:", script.src);
 
         mostrarError(
-            "No fue posible conectar con Google Sheets. Verifica la implementación de Apps Script."
+            "No fue posible conectar con Google Sheets. Revisa la consola."
         );
 
         eliminarScript();
 
     };
+
 
     document.body.appendChild(script);
 
@@ -105,7 +119,6 @@ function cargarDatos() {
     }
 
 }
-
 
 /****************************************************
  * CARGAR FILTROS
