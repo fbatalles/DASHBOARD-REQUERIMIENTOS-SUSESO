@@ -1,8 +1,15 @@
 /****************************************************
+ * DASHBOARD REQUERIMIENTOS SUSESO
+ * APP.JS - VERSION DEFINITIVA
+ ****************************************************/
+
+
+/****************************************************
  * CONFIGURACIÓN
  ****************************************************/
 
-const API_URL = "https://script.google.com/macros/s/AKfycbynk65zqbigtr0gkrqFm1eY1kKNEiXGr25CWncrmTK6i-SXE8s7UkpiWQqWhFV5MF3VnQ/exec";
+const API_URL =
+"https://script.google.com/macros/s/AKfycbynk65zqbigtr0gkrqFm1eY1kNEiXGr25WCncrmTK6i-SXE8s7UkpiWQqWhFV5MF3VnQ/exec";
 
 
 /****************************************************
@@ -10,8 +17,8 @@ const API_URL = "https://script.google.com/macros/s/AKfycbynk65zqbigtr0gkrqFm1eY
  ****************************************************/
 
 let datosOriginales = [];
-let graficoSituacion;
-let graficoPlazos;
+let graficoSituacion = null;
+let graficoPlazos = null;
 
 
 /****************************************************
@@ -20,108 +27,177 @@ let graficoPlazos;
 
 document.addEventListener("DOMContentLoaded", function () {
 
-    document.getElementById("fechaActual").textContent =
-        new Date().toLocaleDateString("es-CL");
+    console.log("Iniciando Dashboard SUSESO...");
+
+    mostrarFechaActual();
 
     cargarDatos();
 
     document.getElementById("btnActualizar").addEventListener("click", function () {
-        aplicarFiltros();
+
+        cargarDatos();
+
     });
 
     document.getElementById("filtroAnio").addEventListener("change", aplicarFiltros);
+
     document.getElementById("filtroMes").addEventListener("change", aplicarFiltros);
 
 });
 
 
 /****************************************************
- * CARGAR DATOS DESDE APPS SCRIPT
- * USANDO JSONP PARA EVITAR CORS
+ * FECHA ACTUAL
+ ****************************************************/
+
+function mostrarFechaActual() {
+
+    const fecha = new Date();
+
+    const opciones = {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric"
+    };
+
+    const fechaTexto = fecha.toLocaleDateString("es-CL", opciones);
+
+    const elemento = document.getElementById("fechaActual");
+
+    if (elemento) {
+        elemento.textContent = fechaTexto;
+    }
+
+}
+
+
+/****************************************************
+ * CARGAR DATOS DESDE GOOGLE APPS SCRIPT
  ****************************************************/
 
 function cargarDatos() {
 
     console.log("Iniciando carga de datos...");
 
-    console.log("URL API:", API_URL);
+    mostrarEstadoCarga(true);
 
-    const callbackName = "recibirDatos_" + Date.now();
-
-    window[callbackName] = function(respuesta) {
-
-        console.log("Respuesta recibida desde Apps Script:", respuesta);
-
-        try {
-
-            if (!respuesta.success) {
-                mostrarError("Apps Script respondió con error.");
-                return;
-            }
-
-            datosOriginales = respuesta.datos || [];
-
-            console.log("Total registros recibidos:", datosOriginales.length);
-
-            cargarFiltros(datosOriginales);
-
-            aplicarFiltros();
-
-            eliminarScript();
-
-        } catch (error) {
-
-            console.error("Error procesando datos:", error);
-
-            mostrarError("Error procesando los datos recibidos.");
-
-        }
-
-    };
-
+    const callbackName =
+        "callbackDashboard_" + Date.now();
 
     const script = document.createElement("script");
 
-    script.src = API_URL + "?callback=" + callbackName;
+    const url =
+        API_URL +
+        "?callback=" + callbackName +
+        "&t=" + Date.now();
 
-    console.log("URL final consultada:", script.src);
+    console.log("URL API:", API_URL);
+    console.log("URL final consulta:", url);
 
-    script.id = "scriptDatosDashboard";
 
-    script.onerror = function() {
+    let finalizado = false;
+
+
+    // Callback global JSONP
+    window[callbackName] = function (respuesta) {
+
+        finalizado = true;
+
+        console.log("Respuesta recibida desde Apps Script:", respuesta);
+
+        limpiarScript();
+
+        if (!respuesta || respuesta.success !== true) {
+
+            mostrarError(
+                "Google Apps Script devolvió un error."
+            );
+
+            return;
+        }
+
+        if (!Array.isArray(respuesta.datos)) {
+
+            mostrarError(
+                "La respuesta no contiene datos válidos."
+            );
+
+            return;
+        }
+
+        datosOriginales = respuesta.datos;
+
+        console.log("Datos cargados correctamente:", datosOriginales.length);
+
+        mostrarEstadoCarga(false);
+
+        cargarFiltros(datosOriginales);
+
+        aplicarFiltros();
+
+    };
+
+
+    // Manejo de errores de conexión
+    script.onerror = function () {
+
+        if (finalizado) return;
 
         console.error("ERROR: No se pudo cargar Apps Script");
 
-        console.error("URL consultada:", script.src);
+        limpiarScript();
+
+        mostrarEstadoCarga(false);
 
         mostrarError(
-            "No fue posible conectar con Google Sheets. Revisa la consola."
+            "No fue posible conectar con Google Sheets. Verifica que la implementación de Apps Script esté activa y accesible."
         );
 
-        eliminarScript();
-
     };
+
+
+    // Timeout de seguridad
+    setTimeout(function () {
+
+        if (!finalizado) {
+
+            console.error("Timeout: Apps Script tardó demasiado en responder.");
+
+            limpiarScript();
+
+            mostrarEstadoCarga(false);
+
+            mostrarError(
+                "La conexión con Google Sheets está tardando demasiado. Intenta nuevamente."
+            );
+
+        }
+
+    }, 30000);
 
 
     document.body.appendChild(script);
 
 
-    function eliminarScript() {
+    function limpiarScript() {
 
-        const elemento = document.getElementById("scriptDatosDashboard");
-
-        if (elemento) {
-            elemento.remove();
+        if (script.parentNode) {
+            script.parentNode.removeChild(script);
         }
 
-        delete window[callbackName];
+        try {
+            delete window[callbackName];
+        } catch (e) {
+            window[callbackName] = undefined;
+        }
 
     }
 
 }
 
+
 /****************************************************
- * CARGAR FILTROS
+ * CARGAR FILTROS DE AÑO Y MES
  ****************************************************/
 
 function cargarFiltros(datos) {
@@ -129,12 +205,16 @@ function cargarFiltros(datos) {
     const selectAnio = document.getElementById("filtroAnio");
     const selectMes = document.getElementById("filtroMes");
 
+    if (!selectAnio || !selectMes) return;
+
+
     const anios = new Set();
     const meses = new Set();
 
-    datos.forEach(registro => {
 
-        const fecha = registro["Fecha Recepción por la unidad"];
+    datos.forEach(function (registro) {
+
+        const fecha = obtenerFechaRegistro(registro);
 
         if (!fecha) return;
 
@@ -150,11 +230,17 @@ function cargarFiltros(datos) {
 
     });
 
+
+    // Limpiar opciones existentes
     selectAnio.innerHTML = '<option value="todos">Todos</option>';
 
-    [...anios]
-        .sort()
-        .forEach(anio => {
+    selectMes.innerHTML = '<option value="todos">Todos</option>';
+
+
+    // Ordenar años descendente
+    Array.from(anios)
+        .sort((a, b) => b - a)
+        .forEach(function (anio) {
 
             const option = document.createElement("option");
 
@@ -165,8 +251,6 @@ function cargarFiltros(datos) {
 
         });
 
-
-    selectMes.innerHTML = '<option value="todos">Todos</option>';
 
     const nombresMeses = [
         "Enero",
@@ -183,18 +267,88 @@ function cargarFiltros(datos) {
         "Diciembre"
     ];
 
-    [...meses]
-        .sort()
-        .forEach(mes => {
+
+    Array.from(meses)
+        .sort((a, b) => a - b)
+        .forEach(function (mes) {
 
             const option = document.createElement("option");
 
             option.value = mes;
-            option.textContent = nombresMeses[parseInt(mes) - 1] || mes;
+            option.textContent = nombresMeses[parseInt(mes, 10) - 1] || mes;
 
             selectMes.appendChild(option);
 
         });
+
+}
+
+
+/****************************************************
+ * OBTENER FECHA DEL REGISTRO
+ ****************************************************/
+
+function obtenerFechaRegistro(registro) {
+
+    const posiblesCampos = [
+
+        "Fecha Recepción por la unidad",
+        "Fecha Recepcion por la unidad",
+        "Fecha recepción",
+        "Fecha Recepcion",
+        "Fecha Ingreso"
+
+    ];
+
+
+    for (const campo of posiblesCampos) {
+
+        if (registro[campo]) {
+
+            let valor = registro[campo];
+
+            if (valor instanceof Date) {
+
+                return formatearFecha(valor);
+
+            }
+
+            if (typeof valor === "string") {
+
+                // Si ya viene YYYY-MM-DD
+                if (/^\d{4}-\d{2}-\d{2}$/.test(valor)) {
+                    return valor;
+                }
+
+                // Si viene DD/MM/YYYY
+                if (/^\d{2}\/\d{2}\/\d{4}$/.test(valor)) {
+
+                    const partes = valor.split("/");
+
+                    return partes[2] + "-" + partes[1] + "-" + partes[0];
+
+                }
+
+            }
+
+        }
+
+    }
+
+    return null;
+
+}
+
+
+function formatearFecha(fecha) {
+
+    const anio = fecha.getFullYear();
+
+    const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+
+    const dia = String(fecha.getDate()).padStart(2, "0");
+
+    return `${anio}-${mes}-${dia}`;
 
 }
 
@@ -205,6 +359,9 @@ function cargarFiltros(datos) {
 
 function aplicarFiltros() {
 
+    if (!datosOriginales.length) return;
+
+
     const anioSeleccionado =
         document.getElementById("filtroAnio").value;
 
@@ -212,32 +369,43 @@ function aplicarFiltros() {
         document.getElementById("filtroMes").value;
 
 
-    const datosFiltrados = datosOriginales.filter(registro => {
+    const datosFiltrados = datosOriginales.filter(function (registro) {
 
-        const fecha = registro["Fecha Recepción por la unidad"];
+        const fecha = obtenerFechaRegistro(registro);
 
-        if (!fecha) return false;
+        if (!fecha) {
+
+            return anioSeleccionado === "todos" &&
+                   mesSeleccionado === "todos";
+
+        }
+
 
         const partes = fecha.split("-");
 
         if (partes.length !== 3) return false;
 
+
         const anio = partes[0];
         const mes = partes[1];
 
 
-        const cumpleAnio =
+        const coincideAnio =
             anioSeleccionado === "todos" ||
             anio === anioSeleccionado;
 
-        const cumpleMes =
+
+        const coincideMes =
             mesSeleccionado === "todos" ||
             mes === mesSeleccionado;
 
 
-        return cumpleAnio && cumpleMes;
+        return coincideAnio && coincideMes;
 
     });
+
+
+    console.log("Datos filtrados:", datosFiltrados.length);
 
 
     actualizarDashboard(datosFiltrados);
@@ -246,77 +414,14 @@ function aplicarFiltros() {
 
 
 /****************************************************
- * ACTUALIZAR DASHBOARD
+ * ACTUALIZAR TODO EL DASHBOARD
  ****************************************************/
 
 function actualizarDashboard(datos) {
 
-    const total = datos.length;
+    actualizarTarjetas(datos);
 
-
-    const respondidos = datos.filter(registro =>
-        normalizar(registro["Pendiente / Cumplido"]) === "respondido"
-    ).length;
-
-
-    const parcialmente = datos.filter(registro =>
-        normalizar(registro["Pendiente / Cumplido"]) === "respondido parcialmente"
-    ).length;
-
-
-    const pendientes = datos.filter(registro =>
-        normalizar(registro["Pendiente / Cumplido"]) === "pendiente de respuesta"
-    ).length;
-
-
-    const enPlazo = datos.filter(registro =>
-        normalizar(registro["Estado"]) === "cumplido en plazo"
-    ).length;
-
-
-    const fueraDePlazo = datos.filter(registro =>
-        normalizar(registro["Estado"]) === "cumplido fuera de plazo"
-    ).length;
-
-
-    const tasaRespuesta =
-        total > 0
-            ? ((respondidos + parcialmente) / total * 100).toFixed(1)
-            : 0;
-
-
-    const cumplimientoPlazo =
-        (enPlazo + fueraDePlazo) > 0
-            ? (enPlazo / (enPlazo + fueraDePlazo) * 100).toFixed(1)
-            : 0;
-
-
-    document.getElementById("totalRequerimientos").textContent = total;
-
-    document.getElementById("respondidos").textContent = respondidos;
-
-    document.getElementById("respondidosParcialmente").textContent = parcialmente;
-
-    document.getElementById("pendientes").textContent = pendientes;
-
-    document.getElementById("tasaRespuesta").textContent = tasaRespuesta + "%";
-
-    document.getElementById("enPlazo").textContent = enPlazo;
-
-    document.getElementById("fueraDePlazo").textContent = fueraDePlazo;
-
-    document.getElementById("cumplimientoPlazo").textContent =
-        cumplimientoPlazo + "%";
-
-
-    actualizarGraficos(
-        respondidos,
-        parcialmente,
-        pendientes,
-        enPlazo,
-        fueraDePlazo
-    );
-
+    actualizarGraficos(datos);
 
     actualizarTabla(datos);
 
@@ -324,177 +429,407 @@ function actualizarDashboard(datos) {
 
 
 /****************************************************
- * NORMALIZAR TEXTO
+ * OBTENER ESTADO
  ****************************************************/
 
-function normalizar(texto) {
+function obtenerEstado(registro) {
 
-    if (texto === null || texto === undefined) return "";
+    return String(
+        registro["Pendiente / Cumplido"] || ""
+    ).trim().toLowerCase();
 
-    return texto
-        .toString()
-        .trim()
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "");
+}
+
+
+function obtenerEstadoDetalle(registro) {
+
+    return String(
+        registro["Estado"] || ""
+    ).trim().toLowerCase();
 
 }
 
 
 /****************************************************
- * GRÁFICOS
+ * ACTUALIZAR TARJETAS
  ****************************************************/
 
-function actualizarGraficos(
-    respondidos,
-    parcialmente,
-    pendientes,
-    enPlazo,
-    fueraDePlazo
-) {
+function actualizarTarjetas(datos) {
+
+    const total = datos.length;
 
 
-    if (graficoSituacion) {
-        graficoSituacion.destroy();
+    let respondidos = 0;
+    let respondidosParcialmente = 0;
+    let pendientes = 0;
+
+
+    let enPlazo = 0;
+    let fueraDePlazo = 0;
+
+
+    datos.forEach(function (registro) {
+
+        const estadoPrincipal = obtenerEstado(registro);
+        const estadoDetalle = obtenerEstadoDetalle(registro);
+
+
+        // RESPONDIDOS
+        if (estadoPrincipal === "respondido") {
+
+            respondidos++;
+
+        }
+
+
+        // RESPONDIDOS PARCIALMENTE
+        if (
+            estadoPrincipal === "respondido parcialmente" ||
+            estadoPrincipal.includes("parcial")
+        ) {
+
+            respondidosParcialmente++;
+
+        }
+
+
+        // PENDIENTES
+        if (
+            estadoPrincipal === "pendiente" ||
+            estadoPrincipal === "pendiente de respuesta" ||
+            estadoPrincipal.includes("pendiente")
+        ) {
+
+            pendientes++;
+
+        }
+
+
+        // CUMPLIMIENTO DE PLAZOS
+        if (estadoDetalle.includes("cumplido en plazo")) {
+
+            enPlazo++;
+
+        }
+
+        if (estadoDetalle.includes("fuera de plazo")) {
+
+            fueraDePlazo++;
+
+        }
+
+    });
+
+
+    const tasaRespuesta =
+        total > 0
+            ? ((respondidos + respondidosParcialmente) / total) * 100
+            : 0;
+
+
+    const totalRespondidosPlazo =
+        enPlazo + fueraDePlazo;
+
+
+    const cumplimientoPlazo =
+        totalRespondidosPlazo > 0
+            ? (enPlazo / totalRespondidosPlazo) * 100
+            : 0;
+
+
+    actualizarElemento("totalRequerimientos", total);
+
+    actualizarElemento("respondidos", respondidos);
+
+    actualizarElemento("respondidosParcialmente", respondidosParcialmente);
+
+    actualizarElemento("pendientes", pendientes);
+
+
+    actualizarElemento("tasaRespuesta", tasaRespuesta.toFixed(1) + "%");
+
+    actualizarElemento("enPlazo", enPlazo);
+
+    actualizarElemento("fueraDePlazo", fueraDePlazo);
+
+    actualizarElemento("cumplimientoPlazo", cumplimientoPlazo.toFixed(1) + "%");
+
+}
+
+
+function actualizarElemento(id, valor) {
+
+    const elemento = document.getElementById(id);
+
+    if (elemento) {
+        elemento.textContent = valor;
     }
 
-    if (graficoPlazos) {
-        graficoPlazos.destroy();
-    }
+}
 
 
-    const ctxSituacion =
+/****************************************************
+ * ACTUALIZAR GRÁFICOS
+ ****************************************************/
+
+function actualizarGraficos(datos) {
+
+    const respondidos = datos.filter(function (r) {
+
+        return obtenerEstado(r) === "respondido";
+
+    }).length;
+
+
+    const respondidosParcialmente = datos.filter(function (r) {
+
+        return obtenerEstado(r).includes("parcial");
+
+    }).length;
+
+
+    const pendientes = datos.filter(function (r) {
+
+        return obtenerEstado(r).includes("pendiente");
+
+    }).length;
+
+
+    const enPlazo = datos.filter(function (r) {
+
+        return obtenerEstadoDetalle(r).includes("cumplido en plazo");
+
+    }).length;
+
+
+    const fueraDePlazo = datos.filter(function (r) {
+
+        return obtenerEstadoDetalle(r).includes("fuera de plazo");
+
+    }).length;
+
+
+    // GRÁFICO SITUACIÓN
+    const canvasSituacion =
         document.getElementById("graficoSituacion");
 
 
-    graficoSituacion = new Chart(ctxSituacion, {
+    if (canvasSituacion && typeof Chart !== "undefined") {
 
-        type: "doughnut",
 
-        data: {
+        if (graficoSituacion) {
 
-            labels: [
-                "Respondidos",
-                "Respondidos parcialmente",
-                "Pendientes de respuesta"
-            ],
-
-            datasets: [{
-
-                data: [
-                    respondidos,
-                    parcialmente,
-                    pendientes
-                ]
-
-            }]
-
-        },
-
-        options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            plugins: {
-                legend: {
-                    position: "bottom"
-                }
-            }
+            graficoSituacion.destroy();
 
         }
 
-    });
 
+        graficoSituacion = new Chart(canvasSituacion, {
 
-    const ctxPlazos =
-        document.getElementById("graficoPlazos");
+            type: "doughnut",
 
+            data: {
 
-    graficoPlazos = new Chart(ctxPlazos, {
+                labels: [
+                    "Respondidos",
+                    "Respondidos parcialmente",
+                    "Pendientes de respuesta"
+                ],
 
-        type: "bar",
+                datasets: [{
 
-        data: {
+                    data: [
+                        respondidos,
+                        respondidosParcialmente,
+                        pendientes
+                    ],
 
-            labels: [
-                "Cumplido en plazo",
-                "Cumplido fuera de plazo"
-            ],
+                    backgroundColor: [
+                        "#3498db",
+                        "#f06292",
+                        "#f39c12"
+                    ],
 
-            datasets: [{
+                    borderWidth: 1
 
-                label: "Cantidad",
-
-                data: [
-                    enPlazo,
-                    fueraDePlazo
-                ]
-
-            }]
-
-        },
-
-        options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            scales: {
-
-                y: {
-                    beginAtZero: true
-                }
+                }]
 
             },
 
-            plugins: {
+            options: {
 
-                legend: {
-                    display: false
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                plugins: {
+
+                    legend: {
+                        position: "top"
+                    }
+
                 }
 
             }
 
+        });
+
+    }
+
+
+    // GRÁFICO PLAZOS
+    const canvasPlazos =
+        document.getElementById("graficoPlazos");
+
+
+    if (canvasPlazos && typeof Chart !== "undefined") {
+
+
+        if (graficoPlazos) {
+
+            graficoPlazos.destroy();
+
         }
 
-    });
+
+        graficoPlazos = new Chart(canvasPlazos, {
+
+            type: "bar",
+
+            data: {
+
+                labels: [
+                    "En plazo",
+                    "Fuera de plazo"
+                ],
+
+                datasets: [{
+
+                    label: "Cantidad",
+
+                    data: [
+                        enPlazo,
+                        fueraDePlazo
+                    ],
+
+                    backgroundColor: [
+                        "#27ae60",
+                        "#e74c3c"
+                    ]
+
+                }]
+
+            },
+
+            options: {
+
+                responsive: true,
+
+                maintainAspectRatio: false,
+
+                scales: {
+
+                    y: {
+
+                        beginAtZero: true,
+
+                        ticks: {
+                            precision: 0
+                        }
+
+                    }
+
+                },
+
+                plugins: {
+
+                    legend: {
+                        display: true
+                    }
+
+                }
+
+            }
+
+        });
+
+    }
 
 }
 
 
 /****************************************************
- * TABLA
+ * ACTUALIZAR TABLA
  ****************************************************/
 
 function actualizarTabla(datos) {
 
-    const tbody = document.getElementById("tablaDatos");
+    const tbody =
+        document.getElementById("tablaDatos");
+
+
+    if (!tbody) return;
+
 
     tbody.innerHTML = "";
 
 
-    datos.forEach(registro => {
+    if (!datos.length) {
 
-        const fila = document.createElement("tr");
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align:center;">
+                    No existen registros para los filtros seleccionados.
+                </td>
+            </tr>
+        `;
 
-        fila.innerHTML = `
+        return;
 
-            <td>${registro["ID RECLAMO SUSESO"] || ""}</td>
+    }
 
-            <td>${registro["Fecha Recepción por la unidad"] || ""}</td>
 
-            <td>${registro["Pendiente / Cumplido"] || ""}</td>
+    datos.forEach(function (registro) {
 
-            <td>${registro["Estado"] || ""}</td>
+        const tr = document.createElement("tr");
 
-            <td>${registro["Requerimiento"] || ""}</td>
+
+        const idReclamo =
+            registro["ID RECLAMO SUSESO"] || "";
+
+
+        const fecha =
+            obtenerFechaRegistro(registro) || "";
+
+
+        const pendiente =
+            registro["Pendiente / Cumplido"] || "";
+
+
+        const estado =
+            registro["Estado"] || "";
+
+
+        const requerimiento =
+            registro["Requerimiento"] || "";
+
+
+        tr.innerHTML = `
+
+            <td>${escaparHTML(idReclamo)}</td>
+
+            <td>${escaparHTML(fecha)}</td>
+
+            <td>${escaparHTML(pendiente)}</td>
+
+            <td>${escaparHTML(estado)}</td>
+
+            <td>${escaparHTML(requerimiento)}</td>
 
         `;
 
-        tbody.appendChild(fila);
+
+        tbody.appendChild(tr);
 
     });
 
@@ -502,13 +837,120 @@ function actualizarTabla(datos) {
 
 
 /****************************************************
- * MOSTRAR ERROR
+ * EVITAR PROBLEMAS DE HTML
+ ****************************************************/
+
+function escaparHTML(valor) {
+
+    if (valor === null || valor === undefined) {
+        return "";
+    }
+
+
+    return String(valor)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+
+}
+
+
+/****************************************************
+ * ESTADO DE CARGA
+ ****************************************************/
+
+function mostrarEstadoCarga(cargando) {
+
+    let indicador = document.getElementById("indicadorCarga");
+
+
+    if (!indicador) {
+
+        indicador = document.createElement("div");
+
+        indicador.id = "indicadorCarga";
+
+
+        indicador.style.position = "fixed";
+        indicador.style.top = "20px";
+        indicador.style.right = "20px";
+        indicador.style.background = "#0d6efd";
+        indicador.style.color = "white";
+        indicador.style.padding = "12px 18px";
+        indicador.style.borderRadius = "8px";
+        indicador.style.zIndex = "9999";
+        indicador.style.fontWeight = "bold";
+
+
+        document.body.appendChild(indicador);
+
+    }
+
+
+    if (cargando) {
+
+        indicador.textContent = "Cargando datos...";
+        indicador.style.display = "block";
+
+    } else {
+
+        indicador.style.display = "none";
+
+    }
+
+}
+
+
+/****************************************************
+ * MOSTRAR ERRORES
  ****************************************************/
 
 function mostrarError(mensaje) {
 
     console.error(mensaje);
 
-    alert(mensaje);
+    mostrarEstadoCarga(false);
+
+
+    let alerta = document.getElementById("alertaError");
+
+
+    if (!alerta) {
+
+        alerta = document.createElement("div");
+
+        alerta.id = "alertaError";
+
+
+        alerta.style.position = "fixed";
+        alerta.style.top = "20px";
+        alerta.style.right = "20px";
+        alerta.style.background = "#dc3545";
+        alerta.style.color = "white";
+        alerta.style.padding = "16px 22px";
+        alerta.style.borderRadius = "8px";
+        alerta.style.zIndex = "10000";
+        alerta.style.maxWidth = "400px";
+        alerta.style.fontWeight = "bold";
+        alerta.style.boxShadow = "0 4px 12px rgba(0,0,0,0.2)";
+
+
+        document.body.appendChild(alerta);
+
+    }
+
+
+    alerta.textContent = mensaje;
+
+
+    setTimeout(function () {
+
+        if (alerta) {
+            alerta.style.display = "none";
+        }
+
+    }, 10000);
 
 }
