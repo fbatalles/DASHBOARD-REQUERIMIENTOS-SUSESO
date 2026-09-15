@@ -18,36 +18,66 @@ let graficoPlazos;
  * CARGAR DATOS
  ************************************************/
 
-async function cargarDatos() {
+/************************************************
+ * CARGAR DATOS DESDE APPS SCRIPT - JSONP
+ ************************************************/
 
-    try {
+function cargarDatos() {
 
-        const respuesta = await fetch(API_URL);
+    const callbackName = "dashboardCallback_" + Date.now();
 
-        const resultado = await respuesta.json();
+    window[callbackName] = function(resultado) {
 
-        if (!resultado.success) {
-            throw new Error(resultado.error);
+        try {
+
+            if (!resultado.success) {
+                throw new Error(resultado.error);
+            }
+
+            datosOriginales = resultado.datos;
+
+            console.log("Datos cargados correctamente:", datosOriginales.length);
+
+            inicializarFiltros();
+
+            actualizarDashboard();
+
+        } catch (error) {
+
+            console.error("Error en los datos:", error);
+
+            alert("No fue posible procesar los datos desde Google Sheets.");
+
         }
 
-        datosOriginales = resultado.datos;
+        // Limpiar callback
+        delete window[callbackName];
 
-        console.log("Datos cargados:", datosOriginales.length);
+        if (script.parentNode) {
+            script.parentNode.removeChild(script);
+        }
 
-        inicializarFiltros();
+    };
 
-        actualizarDashboard();
 
-    } catch (error) {
+    const script = document.createElement("script");
 
-        console.error("Error al cargar datos:", error);
+    script.src = API_URL + "?callback=" + callbackName;
 
-        alert("No fue posible cargar los datos desde Google Sheets.");
+    script.onerror = function() {
 
-    }
+        console.error("Error de conexión con Apps Script.");
+
+        alert("No fue posible conectar con Google Sheets.");
+
+        delete window[callbackName];
+
+    };
+
+
+    document.body.appendChild(script);
 
 }
-
 
 /************************************************
  * INICIALIZAR FILTROS
