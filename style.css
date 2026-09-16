@@ -1,75 +1,491 @@
 /* =====================================================
-   GRÁFICOS DEL DASHBOARD
+   CONFIGURACIÓN GENERAL
+   ===================================================== */
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+
+    font-family: Arial, Helvetica, sans-serif;
+
+    background: #f4f7fb;
+
+    color: #172b4d;
+}
+
+
+/* =====================================================
+   CONTENEDOR PRINCIPAL
+   ===================================================== */
+
+.container {
+    width: 100%;
+    max-width: 1500px;
+
+    margin: 0 auto;
+    padding: 24px;
+}
+
+
+/* =====================================================
+   ENCABEZADO
+   ===================================================== */
+
+.encabezado {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    background: #ffffff;
+
+    border-radius: 14px;
+
+    padding: 24px 30px;
+
+    margin-bottom: 20px;
+
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+.encabezado h1 {
+    margin: 0 0 8px;
+
+    color: #123b6d;
+
+    font-size: 30px;
+    font-weight: 700;
+}
+
+.encabezado p {
+    margin: 0;
+
+    color: #64748b;
+
+    font-size: 15px;
+}
+
+
+/* =====================================================
+   PANELES
+   ===================================================== */
+
+.panel {
+    background: #ffffff;
+
+    border-radius: 14px;
+
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+}
+
+
+/* =====================================================
+   FILTROS
+   ===================================================== */
+
+.filtros {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+
+    padding: 20px;
+
+    margin-bottom: 25px;
+}
+
+.filtro-grupo {
+    display: flex;
+    flex-direction: column;
+
+    gap: 6px;
+}
+
+.filtro-grupo label {
+    font-size: 13px;
+    font-weight: 700;
+
+    color: #475569;
+}
+
+select {
+    min-width: 170px;
+
+    padding: 10px 12px;
+
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+
+    background: #ffffff;
+
+    color: #334155;
+
+    font-size: 14px;
+
+    cursor: pointer;
+}
+
+select:focus {
+    outline: none;
+
+    border-color: #2563eb;
+
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+button {
+    padding: 11px 18px;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #2563eb;
+
+    color: #ffffff;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: background 0.2s ease;
+}
+
+button:hover {
+    background: #1d4ed8;
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+
+/* =====================================================
+   MENSAJES
+   ===================================================== */
+
+.loading {
+    display: none;
+
+    padding: 15px;
+
+    text-align: center;
+
+    color: #64748b;
+
+    font-size: 14px;
+}
+
+.mensaje-error {
+    display: none;
+
+    background: #fee2e2;
+
+    color: #991b1b;
+
+    border: 1px solid #fecaca;
+
+    border-radius: 10px;
+
+    padding: 14px 16px;
+
+    margin-bottom: 20px;
+
+    font-size: 14px;
+}
+
+
+/* =====================================================
+   TÍTULOS DE SECCIÓN
+   ===================================================== */
+
+.titulo-seccion {
+    margin: 25px 0 15px;
+
+    color: #123b6d;
+
+    font-size: 22px;
+    font-weight: 700;
+}
+
+
+/* =====================================================
+   TARJETAS
+   ===================================================== */
+
+.tarjetas {
+    display: grid;
+
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+
+    gap: 18px;
+
+    margin-bottom: 20px;
+}
+
+.tarjeta {
+    min-width: 0;
+
+    background: #ffffff;
+
+    border-radius: 14px;
+
+    padding: 20px;
+
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+
+    border-left: 4px solid #2563eb;
+}
+
+.tarjeta-titulo {
+    display: block;
+
+    margin-bottom: 12px;
+
+    color: #64748b;
+
+    font-size: 14px;
+}
+
+.tarjeta strong {
+    display: block;
+
+    color: #123b6d;
+
+    font-size: 30px;
+    font-weight: 700;
+}
+
+
+/* =====================================================
+   GRÁFICOS
    ===================================================== */
 
 .graficos {
     display: grid;
+
     grid-template-columns: repeat(2, minmax(0, 1fr));
+
     gap: 20px;
+
     width: 100%;
-    margin-top: 20px;
-    align-items: stretch;
+
+    margin-top: 25px;
+    margin-bottom: 25px;
 }
 
 .grafico-card {
-    background: #ffffff;
-    border-radius: 14px;
-    padding: 18px 20px;
-    height: 320px;
     min-width: 0;
+
+    height: 360px;
+
+    background: #ffffff;
+
+    border-radius: 14px;
+
+    padding: 20px;
+
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+
     overflow: hidden;
-    box-sizing: border-box;
 }
 
 .grafico-card h3 {
-    margin: 0 0 8px 0;
+    margin: 0 0 12px;
+
+    color: #123b6d;
+
     font-size: 18px;
     font-weight: 700;
-    color: #14213d;
 }
 
 .grafico-contenedor {
     position: relative;
+
     width: 100%;
-    height: 245px;
-    min-height: 0;
+    height: 285px;
 }
 
 .grafico-contenedor canvas {
     display: block;
+
     width: 100% !important;
     height: 100% !important;
 }
+
+
+/* =====================================================
+   TABLA
+   ===================================================== */
+
+.tabla-panel {
+    padding: 20px;
+
+    margin-top: 25px;
+}
+
+.tabla-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 15px;
+
+    margin-bottom: 15px;
+}
+
+.tabla-cabecera h2 {
+    margin: 0;
+
+    color: #123b6d;
+
+    font-size: 20px;
+}
+
+#contadorRegistros {
+    color: #64748b;
+
+    font-size: 13px;
+}
+
+.tabla-contenedor {
+    width: 100%;
+
+    overflow-x: auto;
+
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+}
+
+table {
+    width: 100%;
+
+    border-collapse: collapse;
+
+    font-size: 13px;
+}
+
+thead {
+    background: #123b6d;
+
+    color: #ffffff;
+}
+
+th {
+    padding: 12px;
+
+    text-align: left;
+
+    white-space: nowrap;
+
+    font-weight: 700;
+}
+
+td {
+    padding: 11px 12px;
+
+    border-bottom: 1px solid #e2e8f0;
+
+    white-space: nowrap;
+
+    color: #334155;
+}
+
+tbody tr:hover {
+    background: #f8fafc;
+}
+
+tbody tr:last-child td {
+    border-bottom: none;
+}
+
 
 /* =====================================================
    RESPONSIVE
    ===================================================== */
 
-@media (max-width: 900px) {
+@media (max-width: 1100px) {
+
+    .tarjetas {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+}
+
+
+@media (max-width: 850px) {
+
+    .container {
+        padding: 16px;
+    }
+
     .graficos {
         grid-template-columns: 1fr;
     }
 
     .grafico-card {
-        height: 300px;
+        height: 330px;
     }
 
     .grafico-contenedor {
-        height: 225px;
+        height: 255px;
     }
+
 }
 
+
 @media (max-width: 600px) {
-    .grafico-card {
-        padding: 15px;
-        height: 280px;
+
+    .encabezado {
+        padding: 20px;
     }
 
-    .grafico-card h3 {
-        font-size: 16px;
+    .encabezado h1 {
+        font-size: 24px;
+    }
+
+    .filtros {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .filtro-grupo,
+    select,
+    button {
+        width: 100%;
+    }
+
+    .tarjetas {
+        grid-template-columns: 1fr;
+    }
+
+    .tarjeta strong {
+        font-size: 26px;
+    }
+
+    .grafico-card {
+        height: 310px;
+        padding: 16px;
     }
 
     .grafico-contenedor {
-        height: 210px;
+        height: 245px;
     }
+
+    .tabla-panel {
+        padding: 14px;
+    }
+
+    .tabla-cabecera {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
 }
